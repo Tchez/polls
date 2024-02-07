@@ -2,6 +2,7 @@ import z from "zod";
 import { randomUUID } from "node:crypto";
 import { prisma } from "../../lib/prisma";
 import { FastifyInstance } from "fastify";
+import { reddis } from "../../lib/redis";
 
 export async function voteOnPoll(app: FastifyInstance) {
   app.post("/polls/:pollId/votes", async (req, reply) => {
@@ -37,6 +38,8 @@ export async function voteOnPoll(app: FastifyInstance) {
             id: userPreviousVoteOnPoll.id,
           },
         });
+
+        await reddis.zincrby(pollId, -1, userPreviousVoteOnPoll.pollOptionId);
       } else if (userPreviousVoteOnPoll) {
         return reply.code(400).send({
           message: "You have already voted on this poll",
@@ -62,6 +65,8 @@ export async function voteOnPoll(app: FastifyInstance) {
         pollOptionId,
       },
     });
+
+    await reddis.zincrby(pollId, 1, pollOptionId);
 
     return reply.code(201).send();
   });
